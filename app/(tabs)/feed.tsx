@@ -21,9 +21,9 @@ const PLAYLISTS = [
 ];
 
 // Number of initial segments to prefetch for instant playback
-const INITIAL_SEGMENT_COUNT = 5;
+const INITIAL_SEGMENT_COUNT = 2;
 // Number of videos to prefetch ahead/behind current video
-const PREFETCH_WINDOW = 1;
+const PREFETCH_WINDOW = 2;
 
 export default function Feed() {
   const tabBarHeight = useBottomTabBarHeight?.() ?? 0;
