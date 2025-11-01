@@ -4,8 +4,10 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Dimensions,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -39,6 +41,17 @@ function VideoItemComponent({
   const [retryCount, setRetryCount] = useState(0);
   const [measuredHeight, setMeasuredHeight] = useState(null);
   const longVisibleTimer = useRef(null);
+  
+  // Video controls state
+  const [manuallyPaused, setManuallyPaused] = useState(false);
+  const [showPauseIcon, setShowPauseIcon] = useState(false);
+  const pauseIconTimeout = useRef(null);
+  
+  // Seek bar state
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const videoRef = useRef(null);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   // IMPORTANT: assume tabBarHeight already accounts for bottom inset (react-navigation does).
   // We subtract only the tabBarHeight so video reaches the top and ends right above the tab bar.
@@ -67,14 +80,6 @@ function VideoItemComponent({
     };
   }, [isActive, id, uri, longVisibleMs, onLongVisible]);
 
-  // handlers for Video
-  const handleLoad = useCallback((meta) => {
-    console.log('[VideoItem] Video loaded:', id, uri);
-    setLoading(false);
-    setError(null);
-    setRetryCount(0);
-    onReady && onReady(meta);
-  }, [onReady, id, uri]);
 
   const handleBuffer = useCallback(({ isBuffering }) => {
     setLoading(isBuffering);
@@ -98,6 +103,92 @@ function VideoItemComponent({
   // mute toggle
   const toggleMute = useCallback(() => setMuted(m => !m), []);
 
+  // Play/Pause toggle on tap
+  const handleVideoTap = useCallback(() => {
+    setManuallyPaused(prev => {
+      const newState = !prev;
+      if (newState) {
+        // Show pause icon with fade in
+        setShowPauseIcon(true);
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+        
+        // Auto-hide after 2 seconds
+        if (pauseIconTimeout.current) {
+          clearTimeout(pauseIconTimeout.current);
+        }
+        pauseIconTimeout.current = setTimeout(() => {
+          Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }).start(() => {
+            setShowPauseIcon(false);
+          });
+        }, 2000);
+      } else {
+        // Hide pause icon immediately when playing
+        if (pauseIconTimeout.current) {
+          clearTimeout(pauseIconTimeout.current);
+        }
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }).start(() => {
+          setShowPauseIcon(false);
+        });
+      }
+      return newState;
+    });
+  }, [fadeAnim]);
+
+  // Reset manual pause when video becomes inactive
+  useEffect(() => {
+    if (!isActive) {
+      setManuallyPaused(false);
+      setShowPauseIcon(false);
+      if (pauseIconTimeout.current) {
+        clearTimeout(pauseIconTimeout.current);
+      }
+    }
+  }, [isActive]);
+
+  // Cleanup pause icon timeout
+  useEffect(() => {
+    return () => {
+      if (pauseIconTimeout.current) {
+        clearTimeout(pauseIconTimeout.current);
+      }
+    };
+  }, []);
+
+  // Video progress tracking for seek bar
+  const handleProgress = useCallback((data: { currentTime: number; seekableDuration: number }) => {
+    setCurrentTime(data.currentTime);
+    if (data.seekableDuration > 0) {
+      setDuration(data.seekableDuration);
+    }
+  }, []);
+
+  const handleLoad = useCallback((meta) => {
+    console.log('[VideoItem] Video loaded:', id, uri);
+    setLoading(false);
+    setError(null);
+    setRetryCount(0);
+    if (meta?.duration) {
+      setDuration(meta.duration);
+    }
+    onReady && onReady(meta);
+  }, [onReady, id, uri]);
+
+  // Calculate seek bar progress
+  const progress = duration > 0 ? currentTime / duration : 0;
+  const progressWidth = progress * SCREEN_WIDTH;
+
   // video style: fill availableHeight (so it won't be cut by tab bar)
   const videoStyle = useMemo(() => ({
     width: SCREEN_WIDTH,
@@ -114,20 +205,23 @@ function VideoItemComponent({
   }, []);
 
   return (
-    <View
+    <Pressable
       ref={containerRef}
       onLayout={onContainerLayout}
+      onPress={handleVideoTap}
       style={[styles.container, { height: availableHeight }, style]}
     >
       <Video
+        ref={videoRef}
         key={`${uri}-${retryCount}`}
         source={{ uri }}
         style={videoStyle}
         resizeMode="cover"
-        paused={!isActive}
+        paused={!isActive || manuallyPaused}
         repeat
         muted={muted}
         onLoad={handleLoad}
+        onProgress={handleProgress}
         onBuffer={handleBuffer}
         onError={handleError}
         playWhenInactive={false}
@@ -136,6 +230,7 @@ function VideoItemComponent({
         controls={false}
         poster=""
         posterResizeMode="cover"
+        progressUpdateInterval={250}
       />
 
       {loading && (
@@ -182,14 +277,57 @@ function VideoItemComponent({
       </View>
 
       <View style={styles.bottomRight}>
-        <TouchableOpacity onPress={toggleMute} style={styles.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity 
+          onPress={(e) => {
+            e.stopPropagation();
+            toggleMute();
+          }} 
+          style={styles.iconBtn} 
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={28} color="#fff" />
         </TouchableOpacity>
         <View style={{ width: 8 }} />
       </View>
 
+      {/* Pause Icon Overlay */}
+      {manuallyPaused && showPauseIcon && (
+        <Animated.View 
+          style={[
+            styles.pauseOverlay,
+            {
+              opacity: fadeAnim,
+            }
+          ]}
+          pointerEvents="none"
+        >
+          <Ionicons name="pause" size={80} color="#fff" />
+        </Animated.View>
+      )}
+
+      {/* Seek Bar */}
+      {duration > 0 && isActive && (
+        <Pressable 
+          style={styles.seekBarContainer}
+          onPress={(e) => {
+            e.stopPropagation(); // Prevent triggering video tap
+            const x = e.nativeEvent.locationX;
+            const progress = Math.max(0, Math.min(1, x / SCREEN_WIDTH));
+            const newTime = progress * duration;
+            
+            if (videoRef.current && duration > 0) {
+              videoRef.current.seek(newTime);
+              setCurrentTime(newTime);
+            }
+          }}
+        >
+          <View style={styles.seekBarBackground} />
+          <View style={[styles.seekBarProgress, { width: progressWidth }]} />
+        </Pressable>
+      )}
+
       {overlay ? <View style={styles.overlay}>{overlay}</View> : null}
-    </View>
+    </Pressable>
   );
 }
 
@@ -275,5 +413,39 @@ const styles = StyleSheet.create({
     padding: 6,
     backgroundColor: '#0006',
     borderRadius: 24,
+  },
+  pauseOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  seekBarContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 30,
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  seekBarBackground: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  seekBarProgress: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    height: 1,
+    backgroundColor: '#fff',
   },
 });
