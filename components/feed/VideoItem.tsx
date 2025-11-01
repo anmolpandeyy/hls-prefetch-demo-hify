@@ -67,9 +67,10 @@ function VideoItemComponent({
 
   // handlers for Video
   const handleLoad = useCallback((meta) => {
+    console.log('[VideoItem] Video loaded:', id, uri);
     setLoading(false);
     onReady && onReady(meta);
-  }, [onReady]);
+  }, [onReady, id, uri]);
 
   const handleBuffer = useCallback(({ isBuffering }) => {
     setLoading(isBuffering);
@@ -77,9 +78,10 @@ function VideoItemComponent({
   }, [onBuffer]);
 
   const handleError = useCallback((err) => {
+    console.error('[VideoItem] Video error:', id, uri, err);
     setLoading(false);
     onError && onError(err);
-  }, [onError]);
+  }, [onError, id, uri]);
 
   // mute toggle
   const toggleMute = useCallback(() => setMuted(m => !m), []);
@@ -88,6 +90,10 @@ function VideoItemComponent({
   const videoStyle = useMemo(() => ({
     width: SCREEN_WIDTH,
     height: availableHeight,
+    backgroundColor: 'black',
+    position: 'absolute',
+    top: 0,
+    left: 0,
   }), [availableHeight]);
 
   const onContainerLayout = useCallback((e) => {
@@ -113,6 +119,10 @@ function VideoItemComponent({
         onError={handleError}
         playWhenInactive={false}
         playInBackground={false}
+        ignoreSilentSwitch="ignore"
+        controls={false}
+        poster=""
+        posterResizeMode="cover"
       />
 
       {loading && (
@@ -122,7 +132,13 @@ function VideoItemComponent({
       )}
 
       <View style={styles.topLeft}>
-        <Text style={styles.indexText}>{id ?? ''}</Text>
+        <Text style={styles.indexText}>Video {id ?? ''}</Text>
+        <Text style={[styles.indexText, { fontSize: 10 }]}>
+          {isActive ? '▶ ACTIVE' : '⏸ PAUSED'}
+        </Text>
+        <Text style={[styles.indexText, { fontSize: 10 }]}>
+          {loading ? '⏳ LOADING' : '✅ LOADED'}
+        </Text>
       </View>
 
       <View style={styles.bottomRight}>
