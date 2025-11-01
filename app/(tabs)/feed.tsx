@@ -89,6 +89,10 @@ export default function Feed() {
       longViewedVideos.current.add(uri);
       
       console.log(`[Prefetch] Completed remaining segments for video ${videoIndex}: ${result.prefetchedSegments}/${result.totalSegments}`);
+      
+      // Log cache stats after successful prefetch
+      const cacheStats = await HlsPrefetcherModule.getCacheStats();
+      console.log(`[Cache Stats] After prefetching video ${videoIndex}:`, cacheStats);
     } catch (error) {
       console.warn(`[Prefetch] Error prefetching remaining segments for video ${videoIndex}:`, error);
     }
@@ -97,6 +101,11 @@ export default function Feed() {
   // Prefetch initial videos on mount
   useEffect(() => {
     prefetchAdjacentVideos(currentIndex);
+
+    setTimeout(async () => {
+      const stats = await HlsPrefetcherModule.getCacheStats();    
+      console.log('Cache stats:', stats);
+    }, 30000);
   }, []);
 
   // Prefetch adjacent videos when current index changes
