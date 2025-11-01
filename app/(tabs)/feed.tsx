@@ -1,47 +1,108 @@
 // src/Feed.js
 import VideoItem from '@/components/feed/VideoItem';
-import { fetchHlsSegments } from '@/utils/fetchHlsSegments';
+import HlsPrefetcherModule from '@/modules/hls-prefetcher';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Dimensions, FlatList } from 'react-native';
 
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const PLAYLISTS = [
-  // 'https://www.w3schools.com/html/mov_bbb.mp4',
-  // 'https://assets.hify.club/full-replays/2447/36/segment_000.ts',
-  'https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/gear1/prog_index.m3u8',
   'https://assets.hify.club/full-replays/2447/36/playlist.m3u8',
-  // 'https://assets.hify.club/full-replays/2447/36/playlist.m3u8',
-  // 'https://assets.hify.club/full-replays/2562/33/playlist.m3u8',
-  // 'https://assets.hify.club/full-replays/2635/59/playlist.m3u8',
-  // 'https://assets.hify.club/full-replays/2777/39/playlist.m3u8',
-  // 'https://assets.hify.club/full-replays/2506/39/playlist.m3u8',
-  // 'https://assets.hify.club/full-replays/2729/39/playlist.m3u8',
-  // 'https://assets.hify.club/full-replays/2732/49/playlist.m3u8',
-  // 'https://assets.hify.club/full-replays/2638/49/playlist.m3u8',
+  'https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/gear1/prog_index.m3u8',
+  'https://assets.hify.club/full-replays/2562/33/playlist.m3u8',
+  'https://assets.hify.club/full-replays/2635/59/playlist.m3u8',
+  'https://assets.hify.club/full-replays/2777/39/playlist.m3u8',
+  'https://assets.hify.club/full-replays/2506/39/playlist.m3u8',
+  'https://assets.hify.club/full-replays/2729/39/playlist.m3u8',
+  'https://assets.hify.club/full-replays/2732/49/playlist.m3u8',
+  'https://assets.hify.club/full-replays/2638/49/playlist.m3u8',
 ];
+
+// Number of initial segments to prefetch for instant playback
+const INITIAL_SEGMENT_COUNT = 5;
+// Number of videos to prefetch ahead/behind current video
+const PREFETCH_WINDOW = 1;
 
 export default function Feed() {
   const tabBarHeight = useBottomTabBarHeight?.() ?? 0;
   const ITEM_HEIGHT = SCREEN_HEIGHT - tabBarHeight;
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatRef = useRef(null);
+  
+  // Track which videos have been prefetched to avoid duplicates
+  const prefetchedVideos = useRef(new Set<string>());
+  const longViewedVideos = useRef(new Set<string>());
 
-
-  async function prefetchFirstSegments(uri) {
-    try {
-      const result = await fetchHlsSegments(uri, {
-        limit: 1, // only first 5 segments
-        concurrency: 2,
-        onProgress: (url, ok) => console.log('Prefetched', url, ok ? '✅' : '❌')
-      });
-      console.log(`Prefetched ${result.fetched}/${result.total} segments`);
-    } catch (e) {
-      console.warn('Prefetch error', e);
+  // Prefetch videos adjacent to current index
+  const prefetchAdjacentVideos = useCallback(async (centerIndex: number) => {
+    const indicesToPrefetch: number[] = [];
+    
+    // Prefetch videos within the window (previous and next)
+    for (let i = -PREFETCH_WINDOW; i <= PREFETCH_WINDOW; i++) {
+      const index = centerIndex + i;
+      if (index >= 0 && index < PLAYLISTS.length) {
+        indicesToPrefetch.push(index);
+      }
     }
-  }
+
+    // Prefetch each video
+    for (const index of indicesToPrefetch) {
+      const videoUrl = PLAYLISTS[index];
+      
+      // Skip if already prefetched
+      if (prefetchedVideos.current.has(videoUrl)) {
+        continue;
+      }
+
+      try {
+        console.log(`[Prefetch] Starting prefetch for video ${index}: ${videoUrl}`);
+        
+        const result = await HlsPrefetcherModule.prefetchPlaylist(
+          videoUrl,
+          INITIAL_SEGMENT_COUNT
+        );
+        
+        prefetchedVideos.current.add(videoUrl);
+        
+        console.log(`[Prefetch] Completed video ${index}: ${result.prefetchedSegments}/${result.totalSegments} segments`);
+      } catch (error) {
+        console.warn(`[Prefetch] Error prefetching video ${index}:`, error);
+      }
+    }
+  }, []);
+
+  // Prefetch remaining segments when user watches video for 5+ seconds
+  const prefetchRemainingSegments = useCallback(async (uri: string, videoIndex: number) => {
+    // Skip if already prefetched all segments
+    if (longViewedVideos.current.has(uri)) {
+      return;
+    }
+
+    try {
+      console.log(`[Prefetch] User watching video ${videoIndex}, prefetching remaining segments...`);
+      
+      // Prefetch a larger number of segments (or all by using a high number)
+      const result = await HlsPrefetcherModule.prefetchPlaylist(uri, 50);
+      
+      longViewedVideos.current.add(uri);
+      
+      console.log(`[Prefetch] Completed remaining segments for video ${videoIndex}: ${result.prefetchedSegments}/${result.totalSegments}`);
+    } catch (error) {
+      console.warn(`[Prefetch] Error prefetching remaining segments for video ${videoIndex}:`, error);
+    }
+  }, []);
+
+  // Prefetch initial videos on mount
+  useEffect(() => {
+    prefetchAdjacentVideos(currentIndex);
+  }, []);
+
+  // Prefetch adjacent videos when current index changes
+  useEffect(() => {
+    prefetchAdjacentVideos(currentIndex);
+  }, [currentIndex, prefetchAdjacentVideos]);
 
   const renderItem = useCallback(({ item, index }) => (
     <VideoItem
@@ -50,11 +111,11 @@ export default function Feed() {
       isActive={index === currentIndex}
       style={{ height: ITEM_HEIGHT }}
       onLongVisible={({ uri }) => {
-        // Optional: prefetch logic (e.g., fetch remaining segments)
-        // prefetchFirstSegments(uri);
+        // Prefetch remaining segments when user watches for 5+ seconds
+        prefetchRemainingSegments(uri, index);
       }}
     />
-  ), [currentIndex, ITEM_HEIGHT]);
+  ), [currentIndex, ITEM_HEIGHT, prefetchRemainingSegments]);
 
   const getItemLayout = useCallback((_, index) => ({
     length: ITEM_HEIGHT,
