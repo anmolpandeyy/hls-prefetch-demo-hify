@@ -92,7 +92,25 @@ export default function Feed() {
       
       // Log cache stats after successful prefetch
       const cacheStats = await HlsPrefetcherModule.getCacheStats();
-      console.log(`[Cache Stats] After prefetching video ${videoIndex}:`, cacheStats);
+      
+      // Format cache stats in MB for readability
+      const formatMB = (bytes: number) => (bytes / (1024 * 1024)).toFixed(2);
+      
+      if ('currentDiskUsage' in cacheStats) {
+        // iOS format
+        console.log(`[Cache Stats] After prefetching video ${videoIndex}:`);
+        console.log(`  💾 Disk: ${formatMB(cacheStats.currentDiskUsage)}MB / ${formatMB(cacheStats.diskCapacity)}MB`);
+        console.log(`  🧠 Memory: ${formatMB(cacheStats.currentMemoryUsage)}MB / ${formatMB(cacheStats.memoryCapacity)}MB`);
+      } else {
+        // Android format
+        const hitRate = cacheStats.requestCount > 0 
+          ? ((cacheStats.hitCount / cacheStats.requestCount) * 100).toFixed(1)
+          : '0.0';
+        console.log(`[Cache Stats] After prefetching video ${videoIndex}:`);
+        console.log(`  💾 Cache: ${formatMB(cacheStats.size)}MB / ${formatMB(cacheStats.maxSize)}MB`);
+        console.log(`  📊 Requests: ${cacheStats.requestCount} (${cacheStats.hitCount} hits, ${cacheStats.networkCount} network)`);
+        console.log(`  ✅ Hit Rate: ${hitRate}%`);
+      }
     } catch (error) {
       console.warn(`[Prefetch] Error prefetching remaining segments for video ${videoIndex}:`, error);
     }
