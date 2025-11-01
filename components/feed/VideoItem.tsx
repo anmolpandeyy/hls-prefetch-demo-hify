@@ -35,6 +35,8 @@ function VideoItemComponent({
 
   const [loading, setLoading] = useState(true);
   const [muted, setMuted] = useState(true);
+  const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [measuredHeight, setMeasuredHeight] = useState(null);
   const longVisibleTimer = useRef(null);
 
@@ -69,6 +71,8 @@ function VideoItemComponent({
   const handleLoad = useCallback((meta) => {
     console.log('[VideoItem] Video loaded:', id, uri);
     setLoading(false);
+    setError(null);
+    setRetryCount(0);
     onReady && onReady(meta);
   }, [onReady, id, uri]);
 
@@ -80,8 +84,16 @@ function VideoItemComponent({
   const handleError = useCallback((err) => {
     console.error('[VideoItem] Video error:', id, uri, err);
     setLoading(false);
+    setError(err);
     onError && onError(err);
   }, [onError, id, uri]);
+
+  const handleRetry = useCallback(() => {
+    console.log('[VideoItem] Retrying video:', id, uri);
+    setError(null);
+    setLoading(true);
+    setRetryCount(prev => prev + 1);
+  }, [id, uri]);
 
   // mute toggle
   const toggleMute = useCallback(() => setMuted(m => !m), []);
@@ -108,6 +120,7 @@ function VideoItemComponent({
       style={[styles.container, { height: availableHeight }, style]}
     >
       <Video
+        key={`${uri}-${retryCount}`}
         source={{ uri }}
         style={videoStyle}
         resizeMode="cover"
@@ -128,6 +141,33 @@ function VideoItemComponent({
       {loading && (
         <View style={styles.loading}>
           <ActivityIndicator size="large" color="#fff" />
+        </View>
+      )}
+
+      {error && !loading && (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={64} color="#ff6b6b" />
+          <Text style={styles.errorTitle}>Video Failed to Load</Text>
+          <Text style={styles.errorMessage}>
+            {error.error?.code === 'ENOTFOUND' 
+              ? 'No internet connection'
+              : error.error?.localizedFailureReason || error.error?.localizedDescription || 'Unable to play this video'
+            }
+          </Text>
+          {retryCount < 3 && (
+            <TouchableOpacity 
+              style={styles.retryButton} 
+              onPress={handleRetry}
+            >
+              <Ionicons name="refresh" size={20} color="#fff" />
+              <Text style={styles.retryText}>Retry</Text>
+            </TouchableOpacity>
+          )}
+          {retryCount >= 3 && (
+            <Text style={styles.errorMessage}>
+              Failed after 3 attempts. Swipe to next video.
+            </Text>
+          )}
         </View>
       )}
 
@@ -166,6 +206,47 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
+  },
+  errorContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    padding: 20,
+  },
+  errorTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    color: '#aaa',
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
+    maxWidth: 300,
+    lineHeight: 20,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 24,
+    gap: 8,
+  },
+  retryText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   overlay: {
     position: 'absolute',
