@@ -15,7 +15,7 @@ class HlsPrefetcherModule : Module() {
   private val prefetchJobs = mutableMapOf<String, Job>()
   private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
   
-  // OkHttp client with cache configuration and User-Agent
+  // OkHttp client with cache configuration
   private val okHttpClient: OkHttpClient by lazy {
     val cacheDir = File(context.cacheDir, "hls_prefetch_cache")
     val cacheSize = 50L * 1024 * 1024 // 50 MB cache
@@ -25,12 +25,6 @@ class HlsPrefetcherModule : Module() {
       .cache(cache)
       .connectTimeout(10, TimeUnit.SECONDS)
       .readTimeout(30, TimeUnit.SECONDS)
-      .addInterceptor { chain ->
-        val request = chain.request().newBuilder()
-          .header("User-Agent", "Mozilla/5.0 (Linux; Android 11) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36")
-          .build()
-        chain.proceed(request)
-      }
       .build()
   }
   
