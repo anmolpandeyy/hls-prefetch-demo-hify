@@ -23,7 +23,6 @@ A React Native Expo application demonstrating instant video playback in a TikTok
 ### 1. Clone and Install Dependencies
 
 ```bash
-git clone <repository-url>
 cd tiktokHlsDemo
 npm install
 ```
