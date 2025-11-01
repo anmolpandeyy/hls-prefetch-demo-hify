@@ -96,7 +96,7 @@ class HlsPrefetcherModule : Module() {
         val response = okHttpClient.newCall(request).execute()
         
         if (!response.isSuccessful) {
-          promise.reject("FETCH_ERROR", "Failed to fetch playlist: ${response.code}")
+          promise.reject("FETCH_ERROR", "Failed to fetch playlist: ${response.code}", null)
           sendEvent("onPrefetchError", mapOf(
             "url" to playlistUrl,
             "error" to "HTTP ${response.code}"
@@ -106,7 +106,7 @@ class HlsPrefetcherModule : Module() {
         
         val playlistContent = response.body?.string()
         if (playlistContent == null) {
-          promise.reject("PARSE_ERROR", "Failed to parse playlist")
+          promise.reject("PARSE_ERROR", "Failed to parse playlist", null)
           sendEvent("onPrefetchError", mapOf(
             "url" to playlistUrl,
             "error" to "Empty playlist"
@@ -193,56 +193,60 @@ class HlsPrefetcherModule : Module() {
     var prefetchedCount = 0
     
     // Prefetch segments in parallel with limited concurrency
-    segmentUrls.mapIndexed { index, segmentUrl ->
-      async {
-        try {
-          val request = Request.Builder()
-            .url(segmentUrl)
-            .build()
-          
-          val response = okHttpClient.newCall(request).execute()
-          
-          if (response.isSuccessful) {
-            // Read the response to ensure it's cached
-            response.body?.bytes()
-            response.close()
+    val results = coroutineScope {
+      segmentUrls.mapIndexed { index, segmentUrl ->
+        async(Dispatchers.IO) {
+          try {
+            val request = Request.Builder()
+              .url(segmentUrl)
+              .build()
             
-            withContext(Dispatchers.Main) {
-              sendEvent("onPrefetchProgress", mapOf(
-                "playlistUrl" to playlistUrl,
-                "segmentUrl" to segmentUrl,
-                "segmentIndex" to index,
-                "success" to true
-              ))
+            val response = okHttpClient.newCall(request).execute()
+            
+            if (response.isSuccessful) {
+              // Read the response to ensure it's cached
+              response.body?.bytes()
+              response.close()
+              
+              withContext(Dispatchers.Main) {
+                sendEvent("onPrefetchProgress", mapOf(
+                  "playlistUrl" to playlistUrl,
+                  "segmentUrl" to segmentUrl,
+                  "segmentIndex" to index,
+                  "success" to true
+                ))
+              }
+              
+              1
+            } else {
+              withContext(Dispatchers.Main) {
+                sendEvent("onPrefetchProgress", mapOf(
+                  "playlistUrl" to playlistUrl,
+                  "segmentUrl" to segmentUrl,
+                  "segmentIndex" to index,
+                  "success" to false,
+                  "error" to "HTTP ${response.code}"
+                ))
+              }
+              0
             }
-            
-            1
-          } else {
+          } catch (e: Exception) {
             withContext(Dispatchers.Main) {
               sendEvent("onPrefetchProgress", mapOf(
                 "playlistUrl" to playlistUrl,
                 "segmentUrl" to segmentUrl,
                 "segmentIndex" to index,
                 "success" to false,
-                "error" to "HTTP ${response.code}"
+                "error" to (e.message ?: "Unknown error")
               ))
             }
             0
           }
-        } catch (e: Exception) {
-          withContext(Dispatchers.Main) {
-            sendEvent("onPrefetchProgress", mapOf(
-              "playlistUrl" to playlistUrl,
-              "segmentUrl" to segmentUrl,
-              "segmentIndex" to index,
-              "success" to false,
-              "error" to (e.message ?: "Unknown error")
-            ))
-          }
-          0
         }
-      }
-    }.awaitAll().forEach { prefetchedCount += it }
+      }.awaitAll()
+    }
+    
+    results.forEach { prefetchedCount += it }
     
     return prefetchedCount
   }
