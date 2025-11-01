@@ -1,10 +1,8 @@
-// src/Feed.js
 import VideoItem from '@/components/feed/VideoItem';
 import HlsPrefetcherModule from '@/modules/hls-prefetcher';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Dimensions, FlatList } from 'react-native';
-
+import { Dimensions, FlatList, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -94,21 +92,23 @@ export default function Feed() {
       const cacheStats = await HlsPrefetcherModule.getCacheStats();
       
       // Format cache stats in MB for readability
-      const formatMB = (bytes: number) => (bytes / (1024 * 1024)).toFixed(2);
+      const formatMB = (bytes: number | undefined) => bytes ? (bytes / (1024 * 1024)).toFixed(2) : '0.00';
       
       if ('currentDiskUsage' in cacheStats) {
         // iOS format
+        const iosStats = cacheStats as { currentDiskUsage: number; diskCapacity: number; currentMemoryUsage: number; memoryCapacity: number };
         console.log(`[Cache Stats] After prefetching video ${videoIndex}:`);
-        console.log(`  💾 Disk: ${formatMB(cacheStats.currentDiskUsage)}MB / ${formatMB(cacheStats.diskCapacity)}MB`);
-        console.log(`  🧠 Memory: ${formatMB(cacheStats.currentMemoryUsage)}MB / ${formatMB(cacheStats.memoryCapacity)}MB`);
-      } else {
+        console.log(`  💾 Disk: ${formatMB(iosStats.currentDiskUsage)}MB / ${formatMB(iosStats.diskCapacity)}MB`);
+        console.log(`  🧠 Memory: ${formatMB(iosStats.currentMemoryUsage)}MB / ${formatMB(iosStats.memoryCapacity)}MB`);
+      } else if ('size' in cacheStats) {
         // Android format
-        const hitRate = cacheStats.requestCount > 0 
-          ? ((cacheStats.hitCount / cacheStats.requestCount) * 100).toFixed(1)
+        const androidStats = cacheStats as { size: number; maxSize: number; requestCount: number; hitCount: number; networkCount: number };
+        const hitRate = androidStats.requestCount > 0 
+          ? ((androidStats.hitCount / androidStats.requestCount) * 100).toFixed(1)
           : '0.0';
         console.log(`[Cache Stats] After prefetching video ${videoIndex}:`);
-        console.log(`  💾 Cache: ${formatMB(cacheStats.size)}MB / ${formatMB(cacheStats.maxSize)}MB`);
-        console.log(`  📊 Requests: ${cacheStats.requestCount} (${cacheStats.hitCount} hits, ${cacheStats.networkCount} network)`);
+        console.log(`  💾 Cache: ${formatMB(androidStats.size)}MB / ${formatMB(androidStats.maxSize)}MB`);
+        console.log(`  📊 Requests: ${androidStats.requestCount} (${androidStats.hitCount} hits, ${androidStats.networkCount} network)`);
         console.log(`  ✅ Hit Rate: ${hitRate}%`);
       }
     } catch (error) {
@@ -119,38 +119,33 @@ export default function Feed() {
   // Prefetch initial videos on mount
   useEffect(() => {
     prefetchAdjacentVideos(currentIndex);
-
-    setTimeout(async () => {
-      const stats = await HlsPrefetcherModule.getCacheStats();    
-      console.log('Cache stats:', stats);
-    }, 30000);
-  }, []);
+  }, [prefetchAdjacentVideos, currentIndex]);
 
   // Prefetch adjacent videos when current index changes
   useEffect(() => {
     prefetchAdjacentVideos(currentIndex);
   }, [currentIndex, prefetchAdjacentVideos]);
 
-  const renderItem = useCallback(({ item, index }) => (
+  const renderItem = useCallback(({ item, index }: { item: string; index: number }) => (
     <VideoItem
       id={index}
       uri={item}
       isActive={index === currentIndex}
       style={{ height: ITEM_HEIGHT }}
-      onLongVisible={({ uri }) => {
+      onLongVisible={((data: { id: number; uri: string }) => {
         // Prefetch remaining segments when user watches for 5+ seconds
-        prefetchRemainingSegments(uri, index);
-      }}
+        prefetchRemainingSegments(data.uri, index);
+      }) as () => void}
     />
   ), [currentIndex, ITEM_HEIGHT, prefetchRemainingSegments]);
 
-  const getItemLayout = useCallback((_, index) => ({
+  const getItemLayout = useCallback((_data: unknown, index: number) => ({
     length: ITEM_HEIGHT,
     offset: ITEM_HEIGHT * index,
     index,
   }), [ITEM_HEIGHT]);
 
-  const onMomentumScrollEnd = useCallback((evt) => {
+  const onMomentumScrollEnd = useCallback((evt: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetY = evt.nativeEvent.contentOffset.y;
     const newIndex = Math.round(offsetY / ITEM_HEIGHT);
     setCurrentIndex(newIndex);
@@ -175,61 +170,3 @@ export default function Feed() {
     />
   );
 }
-
-
-
-
-
-
-
-
-
-
-// import VideoItem from '@/components/feed/VideoItem';
-// import React from 'react';
-// import { Dimensions, FlatList, StyleSheet } from 'react-native';
-
-// const { width } = Dimensions.get('window');
-
-// const Feed = () => {
-//  const videos = [
-//     'https://www.w3schools.com/html/mov_bbb.mp4',
-//     'https://assets.hify.club/full-replays/2447/36/playlist.m3u8'
-//   ];
-
-//   // return (
-//   //   <View style={styles.container}>
-//   //     <Video
-//   //       source={{ uri: 'https://www.w3schools.com/html/mov_bbb.mp4' }}
-//   //       style={styles.video}
-//   //       resizeMode="cover"
-//   //       controls={true}
-//   //       repeat
-//   //       paused={false}
-//   //     />
-//   //   </View>
-//   // );
-
-//     return (
-//     <FlatList
-//       data={videos}
-//       renderItem={({ item, index }) => (
-//         <VideoItem id={`id+${index}`} uri={item} isActive={index === 0} />
-//       )}
-//       keyExtractor={(item, i) => i.toString()}
-//     />
-//   );
-// };
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: 'black',
-//   },
-//   video: {
-//     width,
-//     height: '100%',
-//   },
-// });
-
-// export default Feed;
