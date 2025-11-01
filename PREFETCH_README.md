@@ -54,17 +54,17 @@ Edit these constants in `app/(tabs)/feed.tsx`:
 
 ```typescript
 // Number of initial segments to prefetch (for instant playback)
-const INITIAL_SEGMENT_COUNT = 5;  // Default: 5 (~2-5MB per video)
+const INITIAL_SEGMENT_COUNT = 2;  // Default: 2 (~1-2MB per video)
 
 // Number of videos to prefetch ahead/behind current video
-const PREFETCH_WINDOW = 1;        // Default: 1 (prev, current, next)
+const PREFETCH_WINDOW = 2;        // Default: 2 (prev2, prev1, current, next1, next2)
 ```
 
 ## 📊 Prefetch Strategy
 
 ### Initial Prefetch (On Scroll)
-- Prefetches **first 5 segments** of current ± 1 video
-- Minimal data usage (~2-5MB per video)
+- Prefetches **first 2 segments** of current ± 2 videos
+- Minimal data usage (~1-2MB per video)
 - Ensures instant playback
 
 ### Extended Prefetch (After 5s)

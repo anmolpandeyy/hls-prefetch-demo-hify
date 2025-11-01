@@ -58,7 +58,7 @@ After watching a video for 5+ seconds:
 
 **Success Criteria**:
 - Video playback starts within 1 second
-- At least 5 segments prefetched per video
+- At least 2 segments prefetched per video
 
 ---
 
@@ -126,7 +126,7 @@ After watching a video for 5+ seconds:
 2. Or use developer options to limit bandwidth
 
 **Expected**:
-- First 5 segments load and video starts playing
+- First 2 segments load and video starts playing
 - Additional segments load in background
 - No playback interruption
 
@@ -222,8 +222,8 @@ adb logcat | grep -E "(Prefetch|OkHttp|Cache)"
 
 ### Current Default Settings
 ```typescript
-const INITIAL_SEGMENT_COUNT = 5;    // First segments to prefetch
-const PREFETCH_WINDOW = 1;          // Videos ahead/behind to prefetch
+const INITIAL_SEGMENT_COUNT = 2;    // First segments to prefetch
+const PREFETCH_WINDOW = 2;          // Videos ahead/behind to prefetch
 ```
 
 ### Adjust Based on Results

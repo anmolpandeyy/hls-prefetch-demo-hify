@@ -230,9 +230,9 @@ useEffect(() => {
 ```
 
 **What happens:**
-- Prefetches videos 0, 1 (because window = ±1)
-- Each prefetch downloads 5 segments
-- Total prefetch: ~10-20MB
+- Prefetches videos 0, 1, 2 (because window = ±2, but only 0-2 exist at start)
+- Each prefetch downloads 2 segments
+- Total prefetch: ~6-10MB
 
 ### Step 2: Prefetch Process (Native)
 
@@ -310,8 +310,8 @@ useEffect(() => {
 ### Configuration
 
 ```typescript
-const INITIAL_SEGMENT_COUNT = 5;  // Segments per video
-const PREFETCH_WINDOW = 1;        // Videos around current (±1)
+const INITIAL_SEGMENT_COUNT = 2;  // Segments per video
+const PREFETCH_WINDOW = 2;        // Videos around current (±2)
 ```
 
 ### What Gets Prefetched
@@ -319,39 +319,41 @@ const PREFETCH_WINDOW = 1;        // Videos around current (±1)
 **When at Video Index 3:**
 ```
 Video 0:  [not prefetched]
-Video 1:  [not prefetched]
-Video 2:  [✅ 5 segments cached] ← Previous
-Video 3:  [✅ 5 segments cached] ← Current
-Video 4:  [✅ 5 segments cached] ← Next
-Video 5:  [not prefetched]
+Video 1:  [✅ 2 segments cached] ← Previous 2
+Video 2:  [✅ 2 segments cached] ← Previous 1
+Video 3:  [✅ 2 segments cached] ← Current
+Video 4:  [✅ 2 segments cached] ← Next 1
+Video 5:  [✅ 2 segments cached] ← Next 2
 Video 6:  [not prefetched]
 ```
 
-### Why Only 5 Segments?
+### Why Only 2 Segments?
 
 **Each segment ≈ 10 seconds of video**
-- 5 segments = ~50 seconds of playback
-- File size: ~2-5MB per video (depending on quality)
+- 2 segments = ~20 seconds of playback
+- File size: ~1-2MB per video (depending on quality)
 
 **User behavior:**
-- If user swipes within 50 seconds → Next video ready
-- If user watches beyond 50 seconds → Extended prefetch kicks in
-- Perfect balance of data usage vs instant playback
+- If user swipes within 20 seconds → Next video ready
+- If user watches beyond 20 seconds → Extended prefetch kicks in
+- Optimal balance: fast prefetch completion, minimal data usage, instant playback
 
-### Why ±1 Video?
+### Why ±2 Videos?
 
-**Data efficiency:**
-- 3 videos × 5 segments = ~6-15MB total prefetch
-- Reasonable for mobile networks
+**Better coverage:**
+- 5 videos × 2 segments = ~5-10MB total prefetch
+- Covers fast scrolling scenarios
 
 **User behavior:**
-- 90% of users swipe to next or previous (not jump ahead 3 videos)
-- If they scroll fast, subsequent videos trigger prefetch quickly
+- Handles rapid swiping through multiple videos
+- Two videos ahead/behind provides good buffer
+- Minimal data overhead per video
 
 **Can be adjusted:**
 ```typescript
-const PREFETCH_WINDOW = 2;  // More aggressive (±2 = 5 videos)
-const PREFETCH_WINDOW = 0;  // Conservative (current only)
+const PREFETCH_WINDOW = 3;  // More aggressive (±3 = 7 videos)
+const PREFETCH_WINDOW = 1;  // Conservative (±1 = 3 videos)
+const PREFETCH_WINDOW = 0;  // Minimal (current only)
 ```
 
 ---
@@ -484,23 +486,23 @@ Video 0 second time: 50ms (cache hit!) ✅
 
 #### **WiFi + Powerful Devices** (Aggressive)
 ```typescript
-const INITIAL_SEGMENT_COUNT = 10;  // More segments
-const PREFETCH_WINDOW = 2;         // More videos
+const INITIAL_SEGMENT_COUNT = 5;   // More segments
+const PREFETCH_WINDOW = 3;         // More videos
 // Result: Ultra-smooth, higher data usage
 ```
 
 #### **Mobile Data + Battery Conscious** (Conservative)
 ```typescript
-const INITIAL_SEGMENT_COUNT = 3;   // Fewer segments
-const PREFETCH_WINDOW = 0;         // Current only
+const INITIAL_SEGMENT_COUNT = 1;   // Minimal segments
+const PREFETCH_WINDOW = 1;         // Only ±1 video
 // Result: Still improves, minimal data usage
 ```
 
 #### **Balanced** (Current Default)
 ```typescript
-const INITIAL_SEGMENT_COUNT = 5;   // Good buffer
-const PREFETCH_WINDOW = 1;         // Reasonable coverage
-// Result: Great UX, reasonable data usage
+const INITIAL_SEGMENT_COUNT = 2;   // Quick prefetch
+const PREFETCH_WINDOW = 2;         // Good coverage
+// Result: Fast prefetch, handles fast scrolling, efficient data usage
 ```
 
 ### Network-Aware Strategy (Future Enhancement)

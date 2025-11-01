@@ -47,8 +47,8 @@ getCacheStats(): Promise<CacheStats>
 #### 3. Feed Integration
 
 **Feed Component** (`app/(tabs)/feed.tsx`):
-- Prefetches videos adjacent to current video (±1 by default)
-- Prefetches first 5 segments for instant playback
+- Prefetches videos adjacent to current video (±2 by default)
+- Prefetches first 2 segments for instant playback
 - When user watches for 5+ seconds, prefetches remaining segments
 - Tracks prefetched videos to avoid duplicate requests
 - Automatically handles index changes
@@ -56,9 +56,9 @@ getCacheStats(): Promise<CacheStats>
 ## Prefetching Strategy
 
 ### Initial Prefetch (On Scroll)
-- Prefetches **first 5 segments** of current, previous, and next videos
+- Prefetches **first 2 segments** of 5 videos (±2 window around current video)
 - Ensures instant playback when user swipes to new video
-- Minimal data usage (~2-5MB per video depending on quality)
+- Minimal data usage (~1-2MB per video depending on quality)
 
 ### Extended Prefetch (Long View)
 - After 5 seconds of viewing, prefetches up to **50 more segments**
@@ -68,8 +68,8 @@ getCacheStats(): Promise<CacheStats>
 ### Configuration
 You can adjust these constants in `feed.tsx`:
 ```typescript
-const INITIAL_SEGMENT_COUNT = 5;      // Segments to prefetch initially
-const PREFETCH_WINDOW = 1;            // Videos to prefetch (±N)
+const INITIAL_SEGMENT_COUNT = 2;      // Segments to prefetch initially
+const PREFETCH_WINDOW = 2;            // Videos to prefetch (±N)
 ```
 
 ## Cache Behavior
@@ -131,7 +131,7 @@ npx expo run:android
 
 #### 5. Network Conditions
 - **Test**: Enable slow network (Settings > Developer > Network Link Conditioner on iOS)
-- **Expected**: First 5 segments load, playback starts, more segments load in background
+- **Expected**: First 2 segments load, playback starts, more segments load in background
 
 ### Debugging
 
@@ -168,20 +168,20 @@ HlsPrefetcherModule.clearCache();
 ## Performance Optimization
 
 ### Current Settings (Optimized for Balance)
-- **5 segments** initially = ~2-5MB per video
-- **±1 video** prefetch = 3 videos total (current + neighbors)
-- Total prefetch on scroll: ~6-15MB
+- **2 segments** initially = ~1-2MB per video
+- **±2 videos** prefetch = 5 videos total (prev2, prev1, current, next1, next2)
+- Total prefetch on scroll: ~5-10MB
 
 ### For Better Networks
 ```typescript
-const INITIAL_SEGMENT_COUNT = 10;     // More instant playback time
-const PREFETCH_WINDOW = 2;            // Prefetch 2 videos ahead/behind
+const INITIAL_SEGMENT_COUNT = 5;      // More instant playback time
+const PREFETCH_WINDOW = 3;            // Prefetch 3 videos ahead/behind
 ```
 
 ### For Slower Networks
 ```typescript
-const INITIAL_SEGMENT_COUNT = 3;      // Minimal prefetch
-const PREFETCH_WINDOW = 0;            // Only current video
+const INITIAL_SEGMENT_COUNT = 1;      // Minimal prefetch
+const PREFETCH_WINDOW = 1;            // Only ±1 video
 ```
 
 ## Known Limitations
