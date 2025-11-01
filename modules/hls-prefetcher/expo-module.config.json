@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "modules": ["HlsPrefetcherModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.hlsprefetcher.HlsPrefetcherModule"]
+  }
+}
