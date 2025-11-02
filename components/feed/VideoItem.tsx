@@ -13,7 +13,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Video from 'react-native-video';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -44,7 +43,6 @@ function VideoItemComponent({
   longVisibleMs = DEFAULT_LONG_VISIBLE_MS,
   style = {},
 }: VideoItemProps) {
-  const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight?.() ?? 0;
 
   const [loading, setLoading] = useState(true);
