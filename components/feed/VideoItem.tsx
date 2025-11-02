@@ -46,7 +46,6 @@ function VideoItemComponent({
 }: VideoItemProps) {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight?.() ?? 0;
-  const containerRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [muted, setMuted] = useState(true);
@@ -225,7 +224,6 @@ function VideoItemComponent({
 
   return (
     <Pressable
-      ref={containerRef}
       onPress={handleVideoTap}
       style={[
         styles.container, 
