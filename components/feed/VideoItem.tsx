@@ -5,7 +5,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Animated,
-  Dimensions,
   Platform,
   Pressable,
   StyleSheet,
@@ -15,21 +14,10 @@ import {
 } from 'react-native';
 import Video from 'react-native-video';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const DEFAULT_LONG_VISIBLE_MS = 5000;
+import { SCREEN_HEIGHT_EXPORT as SCREEN_HEIGHT, SCREEN_WIDTH_EXPORT as SCREEN_WIDTH, styles } from './VideoItem.styles';
+import { VideoItemProps } from './VideoItem.typings';
 
-interface VideoItemProps {
-  id?: number | string;
-  uri: string;
-  isActive?: boolean;
-  overlay?: React.ReactNode;
-  onReady?: (meta?: any) => void;
-  onBuffer?: (isBuffering?: boolean) => void;
-  onError?: (err?: any) => void;
-  onLongVisible?: (data?: { id?: number | string; uri?: string }) => void;
-  longVisibleMs?: number;
-  style?: any;
-}
+const DEFAULT_LONG_VISIBLE_MS = 5000;
 
 function VideoItemComponent({
   id,
@@ -393,120 +381,3 @@ function VideoItemComponent({
 }
 
 export default React.memo(VideoItemComponent);
-
-const styles = StyleSheet.create({
-  container: {
-    width: SCREEN_WIDTH,
-    backgroundColor: 'black',
-  },
-  loading: {
-    position: 'absolute',
-    top: SCREEN_HEIGHT / 2 - 24,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  errorContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.95)',
-    padding: 20,
-  },
-  errorTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  errorMessage: {
-    color: '#aaa',
-    fontSize: 14,
-    marginTop: 8,
-    textAlign: 'center',
-    maxWidth: 300,
-    lineHeight: 20,
-  },
-  retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 24,
-    gap: 8,
-  },
-  retryText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  overlay: {
-    position: 'absolute',
-    bottom: 120,
-    left: 16,
-    right: 16,
-  },
-  topLeft: {
-    position: 'absolute',
-    top: Platform.select({ ios: 40, android: 16 }),
-    left: 16,
-  },
-  indexText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  bottomRight: {
-    position: 'absolute',
-    right: 12,
-    // bottom is set dynamically in JSX based on platform
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconBtn: {
-    padding: 6,
-    backgroundColor: '#0006',
-    borderRadius: 24,
-  },
-  pauseOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 5,
-  },
-  seekBarContainer: {
-    position: 'absolute',
-    // bottom is set dynamically in JSX based on platform
-    left: 0,
-    right: 0,
-    height: 30, // Touch area height (visual bar is 1px at bottom)
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  seekBarBackground: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  seekBarProgress: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    height: 1,
-    backgroundColor: '#fff',
-  },
-});
