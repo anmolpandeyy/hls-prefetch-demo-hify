@@ -1,4 +1,4 @@
-// src/VideoItem.js
+// VideoItem.tsx
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -13,11 +13,23 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Video from 'react-native-video';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DEFAULT_LONG_VISIBLE_MS = 5000;
+
+interface VideoItemProps {
+  id?: number | string;
+  uri: string;
+  isActive?: boolean;
+  overlay?: React.ReactNode;
+  onReady?: (meta?: any) => void;
+  onBuffer?: (isBuffering?: boolean) => void;
+  onError?: (err?: any) => void;
+  onLongVisible?: (data?: { id?: number | string; uri?: string }) => void;
+  longVisibleMs?: number;
+  style?: any;
+}
 
 function VideoItemComponent({
   id,
@@ -30,41 +42,47 @@ function VideoItemComponent({
   onLongVisible = () => {},
   longVisibleMs = DEFAULT_LONG_VISIBLE_MS,
   style = {},
-}) {
-  const insets = useSafeAreaInsets();
+}: VideoItemProps) {
   const tabBarHeight = useBottomTabBarHeight?.() ?? 0;
-  const containerRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [muted, setMuted] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<any>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const [measuredHeight, setMeasuredHeight] = useState(null);
-  const longVisibleTimer = useRef(null);
+  const longVisibleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Video controls state
   const [manuallyPaused, setManuallyPaused] = useState(false);
   const [showPauseIcon, setShowPauseIcon] = useState(false);
-  const pauseIconTimeout = useRef(null);
+  const pauseIconTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Seek bar state
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const videoRef = useRef(null);
+  const videoRef = useRef<any>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // IMPORTANT: assume tabBarHeight already accounts for bottom inset (react-navigation does).
-  // We subtract only the tabBarHeight so video reaches the top and ends right above the tab bar.
-  const availableHeight = useMemo(
-    () => SCREEN_HEIGHT - tabBarHeight,
-    [tabBarHeight]
-  );
+  // IMPORTANT: Platform-specific height calculation
+  // Android: tab bar is an overlay (doesn't affect layout), use full screen height
+  // iOS: tab bar is part of layout (takes space), subtract it
+  const availableHeight = useMemo(() => {
+    // If style prop provides height (from feed.tsx), use that
+    if (style?.height) {
+      return style.height;
+    }
+    // Otherwise calculate based on platform
+    return Platform.OS === 'android' 
+      ? SCREEN_HEIGHT 
+      : SCREEN_HEIGHT - tabBarHeight;
+  }, [tabBarHeight, style?.height]);
 
   // Start/clear the long-visible timer when isActive changes
   useEffect(() => {
     if (isActive) {
       longVisibleTimer.current = setTimeout(() => {
-        onLongVisible && onLongVisible({ id, uri });
+        if (onLongVisible) {
+          onLongVisible({ id, uri });
+        }
       }, longVisibleMs);
     } else {
       if (longVisibleTimer.current) {
@@ -80,21 +98,22 @@ function VideoItemComponent({
     };
   }, [isActive, id, uri, longVisibleMs, onLongVisible]);
 
-
-  const handleBuffer = useCallback(({ isBuffering }) => {
+  const handleBuffer = useCallback(({ isBuffering }: { isBuffering: boolean }) => {
     setLoading(isBuffering);
-    onBuffer && onBuffer(isBuffering);
+    if (onBuffer) {
+      onBuffer(isBuffering);
+    }
   }, [onBuffer]);
 
-  const handleError = useCallback((err) => {
-    console.error('[VideoItem] Video error:', id, uri, err);
+  const handleError = useCallback((err: any) => {
     setLoading(false);
     setError(err);
-    onError && onError(err);
+    if (onError) {
+      onError(err);
+    }
   }, [onError, id, uri]);
 
   const handleRetry = useCallback(() => {
-    console.log('[VideoItem] Retrying video:', id, uri);
     setError(null);
     setLoading(true);
     setRetryCount(prev => prev + 1);
@@ -174,16 +193,17 @@ function VideoItemComponent({
     }
   }, []);
 
-  const handleLoad = useCallback((meta) => {
-    console.log('[VideoItem] Video loaded:', id, uri);
+  const handleLoad = useCallback((meta: any) => {
     setLoading(false);
     setError(null);
     setRetryCount(0);
     if (meta?.duration) {
       setDuration(meta.duration);
     }
-    onReady && onReady(meta);
-  }, [onReady, id, uri]);
+    if (onReady) {
+      onReady(meta);
+    }
+  }, [onReady]);
 
   // Calculate seek bar progress
   const progress = duration > 0 ? currentTime / duration : 0;
@@ -194,44 +214,61 @@ function VideoItemComponent({
     width: SCREEN_WIDTH,
     height: availableHeight,
     backgroundColor: 'black',
-    position: 'absolute',
+    position: 'absolute' as const,
     top: 0,
     left: 0,
   }), [availableHeight]);
 
-  const onContainerLayout = useCallback((e) => {
-    const h = e.nativeEvent.layout.height;
-    setMeasuredHeight(h);
-  }, []);
 
   return (
     <Pressable
-      ref={containerRef}
-      onLayout={onContainerLayout}
       onPress={handleVideoTap}
-      style={[styles.container, { height: availableHeight }, style]}
+      style={[
+        styles.container, 
+        { 
+          height: availableHeight,
+          minHeight: style?.height || availableHeight,
+        }, 
+        style
+      ]}
     >
-      <Video
-        ref={videoRef}
-        key={`${uri}-${retryCount}`}
-        source={{ uri }}
-        style={videoStyle}
-        resizeMode="cover"
-        paused={!isActive || manuallyPaused}
-        repeat
-        muted={muted}
-        onLoad={handleLoad}
-        onProgress={handleProgress}
-        onBuffer={handleBuffer}
-        onError={handleError}
-        playWhenInactive={false}
-        playInBackground={false}
-        ignoreSilentSwitch="ignore"
-        controls={false}
-        poster=""
-        posterResizeMode="cover"
-        progressUpdateInterval={250}
-      />
+      {/* On Android, wrap Video in View with pointerEvents="none" to truly disable touches */}
+      <View 
+        style={Platform.OS === 'android' ? { ...videoStyle, pointerEvents: 'none' as const } : undefined}
+        pointerEvents={Platform.OS === 'android' ? 'none' : undefined}
+      >
+        <Video
+          ref={videoRef}
+          key={`${uri}-${retryCount}`}
+          source={{ uri }}
+          style={videoStyle}
+          resizeMode="cover"
+          paused={!isActive || manuallyPaused}
+          repeat
+          muted={muted}
+          onLoad={handleLoad}
+          onProgress={handleProgress}
+          onBuffer={handleBuffer}
+          onError={handleError}
+          playWhenInactive={false}
+          playInBackground={false}
+          ignoreSilentSwitch="ignore"
+          controls={false}
+          poster=""
+          posterResizeMode="cover"
+          progressUpdateInterval={250}
+          pointerEvents="none"
+        />
+      </View>
+      
+      {/* Android-only: Invisible touch overlay to capture taps (Video blocks touches) */}
+      {Platform.OS === 'android' && (
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={handleVideoTap}
+          pointerEvents="box-only"
+        />
+      )}
 
       {loading && (
         <View style={styles.loading}>
@@ -244,9 +281,9 @@ function VideoItemComponent({
           <Ionicons name="alert-circle-outline" size={64} color="#ff6b6b" />
           <Text style={styles.errorTitle}>Video Failed to Load</Text>
           <Text style={styles.errorMessage}>
-            {error.error?.code === 'ENOTFOUND' 
+            {error?.error?.code === 'ENOTFOUND' 
               ? 'No internet connection'
-              : error.error?.localizedFailureReason || error.error?.localizedDescription || 'Unable to play this video'
+              : error?.error?.localizedFailureReason || error?.error?.localizedDescription || 'Unable to play this video'
             }
           </Text>
           {retryCount < 3 && (
@@ -276,7 +313,17 @@ function VideoItemComponent({
         </Text>
       </View>
 
-      <View style={styles.bottomRight}>
+      <View style={[
+        styles.bottomRight,
+        {
+          // On Android: tab bar is overlay, position above it
+          // On iOS: container already accounts for tab bar, position relative to container bottom
+          bottom: Platform.select({ 
+            ios: tabBarHeight + 16,  // tabBarHeight already subtracted from container
+            android: tabBarHeight + 16  // tabBarHeight not subtracted, so add it here
+          }),
+        }
+      ]}>
         <TouchableOpacity 
           onPress={(e) => {
             e.stopPropagation();
@@ -308,7 +355,20 @@ function VideoItemComponent({
       {/* Seek Bar */}
       {duration > 0 && isActive && (
         <Pressable 
-          style={styles.seekBarContainer}
+          style={[
+            styles.seekBarContainer,
+            {
+              // Platform-specific positioning:
+              // iOS: container height already accounts for tab bar (SCREEN_HEIGHT - tabBarHeight)
+              //      so bottom: 0 positions it right above tab bar
+              // Android: container is full screen height, tab bar is overlay
+              //          so we need to add tabBarHeight to position above it
+              bottom: Platform.select({ 
+                ios: 0, 
+                android: 10
+              }),
+            }
+          ]}
           onPress={(e) => {
             e.stopPropagation(); // Prevent triggering video tap
             const x = e.nativeEvent.locationX;
@@ -320,6 +380,7 @@ function VideoItemComponent({
               setCurrentTime(newTime);
             }
           }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <View style={styles.seekBarBackground} />
           <View style={[styles.seekBarProgress, { width: progressWidth }]} />
@@ -405,7 +466,7 @@ const styles = StyleSheet.create({
   bottomRight: {
     position: 'absolute',
     right: 12,
-    bottom: Platform.select({ ios: 100, android: 80 }),
+    // bottom is set dynamically in JSX based on platform
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -426,10 +487,10 @@ const styles = StyleSheet.create({
   },
   seekBarContainer: {
     position: 'absolute',
-    bottom: 0,
+    // bottom is set dynamically in JSX based on platform
     left: 0,
     right: 0,
-    height: 30,
+    height: 30, // Touch area height (visual bar is 1px at bottom)
     justifyContent: 'center',
     zIndex: 10,
   },

@@ -2,7 +2,7 @@ import VideoItem from '@/components/feed/VideoItem';
 import { useVideoPrefetch } from '@/hooks/useVideoPrefetch';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import React, { useCallback, useRef, useState } from 'react';
-import { Dimensions, FlatList, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import { Dimensions, FlatList, NativeScrollEvent, NativeSyntheticEvent, Platform } from 'react-native';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -25,7 +25,13 @@ const EXTENDED_SEGMENT_COUNT = 50; // Segments for long-viewed videos
 
 export default function Feed() {
   const tabBarHeight = useBottomTabBarHeight?.() ?? 0;
-  const ITEM_HEIGHT = SCREEN_HEIGHT - tabBarHeight;
+  
+  // On Android: tab bar is an overlay (doesn't affect layout), use full screen height
+  // On iOS: tab bar is part of layout (takes space), subtract it
+  const ITEM_HEIGHT = Platform.OS === 'android' 
+    ? SCREEN_HEIGHT 
+    : SCREEN_HEIGHT - tabBarHeight;
+  
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatRef = useRef(null);
   
