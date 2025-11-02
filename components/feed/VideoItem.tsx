@@ -111,7 +111,6 @@ function VideoItemComponent({
   }, [onBuffer]);
 
   const handleError = useCallback((err: any) => {
-    console.error('[VideoItem] Video error:', id, uri, err);
     setLoading(false);
     setError(err);
     if (onError) {
@@ -120,7 +119,6 @@ function VideoItemComponent({
   }, [onError, id, uri]);
 
   const handleRetry = useCallback(() => {
-    console.log('[VideoItem] Retrying video:', id, uri);
     setError(null);
     setLoading(true);
     setRetryCount(prev => prev + 1);
@@ -201,7 +199,6 @@ function VideoItemComponent({
   }, []);
 
   const handleLoad = useCallback((meta: any) => {
-    console.log('[VideoItem] Video loaded:', id, uri);
     setLoading(false);
     setError(null);
     setRetryCount(0);
@@ -247,28 +244,43 @@ function VideoItemComponent({
         style
       ]}
     >
-      <Video
-        ref={videoRef}
-        key={`${uri}-${retryCount}`}
-        source={{ uri }}
-        style={videoStyle}
-        resizeMode="cover"
-        paused={!isActive || manuallyPaused}
-        repeat
-        muted={muted}
-        onLoad={handleLoad}
-        onProgress={handleProgress}
-        onBuffer={handleBuffer}
-        onError={handleError}
-        playWhenInactive={false}
-        playInBackground={false}
-        ignoreSilentSwitch="ignore"
-        controls={false}
-        poster=""
-        posterResizeMode="cover"
-        progressUpdateInterval={250}
-        pointerEvents="none"
-      />
+      {/* On Android, wrap Video in View with pointerEvents="none" to truly disable touches */}
+      <View 
+        style={Platform.OS === 'android' ? { ...videoStyle, pointerEvents: 'none' as const } : undefined}
+        pointerEvents={Platform.OS === 'android' ? 'none' : undefined}
+      >
+        <Video
+          ref={videoRef}
+          key={`${uri}-${retryCount}`}
+          source={{ uri }}
+          style={videoStyle}
+          resizeMode="cover"
+          paused={!isActive || manuallyPaused}
+          repeat
+          muted={muted}
+          onLoad={handleLoad}
+          onProgress={handleProgress}
+          onBuffer={handleBuffer}
+          onError={handleError}
+          playWhenInactive={false}
+          playInBackground={false}
+          ignoreSilentSwitch="ignore"
+          controls={false}
+          poster=""
+          posterResizeMode="cover"
+          progressUpdateInterval={250}
+          pointerEvents="none"
+        />
+      </View>
+      
+      {/* Android-only: Invisible touch overlay to capture taps (Video blocks touches) */}
+      {Platform.OS === 'android' && (
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={handleVideoTap}
+          pointerEvents="box-only"
+        />
+      )}
 
       {loading && (
         <View style={styles.loading}>
@@ -365,7 +377,7 @@ function VideoItemComponent({
               //          so we need to add tabBarHeight to position above it
               bottom: Platform.select({ 
                 ios: 0, 
-                android: tabBarHeight 
+                android: 20
               }),
             }
           ]}
@@ -380,6 +392,7 @@ function VideoItemComponent({
               setCurrentTime(newTime);
             }
           }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <View style={styles.seekBarBackground} />
           <View style={[styles.seekBarProgress, { width: progressWidth }]} />
