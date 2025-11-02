@@ -377,7 +377,7 @@ function VideoItemComponent({
               //          so we need to add tabBarHeight to position above it
               bottom: Platform.select({ 
                 ios: 0, 
-                android: 20
+                android: 10
               }),
             }
           ]}
