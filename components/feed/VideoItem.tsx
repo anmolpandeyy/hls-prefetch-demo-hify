@@ -55,6 +55,7 @@ function VideoItemComponent({
 
   // IMPORTANT: assume tabBarHeight already accounts for bottom inset (react-navigation does).
   // We subtract only the tabBarHeight so video reaches the top and ends right above the tab bar.
+  // This ensures the video container and all its children (including seek bar) are positioned above the tab bar.
   const availableHeight = useMemo(
     () => SCREEN_HEIGHT - tabBarHeight,
     [tabBarHeight]
@@ -426,10 +427,13 @@ const styles = StyleSheet.create({
   },
   seekBarContainer: {
     position: 'absolute',
+    // bottom: 0 positions seek bar at the bottom edge of the container
+    // Since container height = SCREEN_HEIGHT - tabBarHeight, this ensures
+    // seek bar is positioned right above the tab bar
     bottom: 0,
     left: 0,
     right: 0,
-    height: 30,
+    height: 30, // Touch area height (visual bar is 1px at bottom)
     justifyContent: 'center',
     zIndex: 10,
   },
