@@ -230,7 +230,15 @@ function VideoItemComponent({
       ref={containerRef}
       onLayout={onContainerLayout}
       onPress={handleVideoTap}
-      style={[styles.container, { height: availableHeight }, style]}
+      style={[
+        styles.container, 
+        { 
+          height: availableHeight,
+          // Ensure container takes full height on Android
+          ...(Platform.OS === 'android' && { minHeight: availableHeight }),
+        }, 
+        style
+      ]}
     >
       <Video
         ref={videoRef}
