@@ -234,8 +234,8 @@ function VideoItemComponent({
         styles.container, 
         { 
           height: availableHeight,
-          // Ensure container takes full height on Android
-          ...(Platform.OS === 'android' && { minHeight: availableHeight }),
+          // Ensure container takes full height - use style prop height if provided, otherwise availableHeight
+          minHeight: style?.height || availableHeight,
         }, 
         style
       ]}
