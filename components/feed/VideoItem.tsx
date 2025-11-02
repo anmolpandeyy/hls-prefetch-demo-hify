@@ -66,13 +66,12 @@ function VideoItemComponent({
   const videoRef = useRef<any>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // IMPORTANT: assume tabBarHeight already accounts for bottom inset (react-navigation does).
-  // We subtract only the tabBarHeight so video reaches the top and ends right above the tab bar.
-  // This ensures the video container and all its children (including seek bar) are positioned above the tab bar.
-  const availableHeight = useMemo(
-    () => SCREEN_HEIGHT - tabBarHeight,
-    [tabBarHeight]
-  );
+  // IMPORTANT: On Android, account for status bar inset at top
+  // We subtract tabBarHeight for bottom, and on Android also subtract top inset if needed
+  const availableHeight = useMemo(() => {
+    const topInset = Platform.OS === 'android' ? insets.top : 0;
+    return SCREEN_HEIGHT - tabBarHeight - topInset;
+  }, [tabBarHeight, insets.top]);
 
       // Start/clear the long-visible timer when isActive changes
   useEffect(() => {
@@ -253,6 +252,7 @@ function VideoItemComponent({
         poster=""
         posterResizeMode="cover"
         progressUpdateInterval={250}
+        pointerEvents="none"
       />
 
       {loading && (
