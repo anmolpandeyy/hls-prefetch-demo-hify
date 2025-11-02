@@ -1,4 +1,4 @@
-// src/VideoItem.js
+// VideoItem.tsx
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -52,7 +52,6 @@ function VideoItemComponent({
   const [muted, setMuted] = useState(true);
   const [error, setError] = useState<any>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
   const longVisibleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Video controls state
@@ -80,7 +79,7 @@ function VideoItemComponent({
       : SCREEN_HEIGHT - tabBarHeight;
   }, [tabBarHeight, style?.height]);
 
-      // Start/clear the long-visible timer when isActive changes
+  // Start/clear the long-visible timer when isActive changes
   useEffect(() => {
     if (isActive) {
       longVisibleTimer.current = setTimeout(() => {
@@ -101,7 +100,6 @@ function VideoItemComponent({
       }
     };
   }, [isActive, id, uri, longVisibleMs, onLongVisible]);
-
 
   const handleBuffer = useCallback(({ isBuffering }: { isBuffering: boolean }) => {
     setLoading(isBuffering);
@@ -208,7 +206,7 @@ function VideoItemComponent({
     if (onReady) {
       onReady(meta);
     }
-  }, [onReady, id, uri]);
+  }, [onReady]);
 
   // Calculate seek bar progress
   const progress = duration > 0 ? currentTime / duration : 0;
@@ -224,21 +222,15 @@ function VideoItemComponent({
     left: 0,
   }), [availableHeight]);
 
-  const onContainerLayout = useCallback((e: any) => {
-    const h = e.nativeEvent.layout.height;
-    setMeasuredHeight(h);
-  }, []);
 
   return (
     <Pressable
       ref={containerRef}
-      onLayout={onContainerLayout}
       onPress={handleVideoTap}
       style={[
         styles.container, 
         { 
           height: availableHeight,
-          // Ensure container takes full height - use style prop height if provided, otherwise availableHeight
           minHeight: style?.height || availableHeight,
         }, 
         style
