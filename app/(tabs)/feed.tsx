@@ -27,9 +27,13 @@ const EXTENDED_SEGMENT_COUNT = 50; // Segments for long-viewed videos
 export default function Feed() {
   const tabBarHeight = useBottomTabBarHeight?.() ?? 0;
   const insets = useSafeAreaInsets();
-  // Match the height calculation used in VideoItem - account for status bar on Android
-  const topInset = Platform.OS === 'android' ? insets.top : 0;
-  const ITEM_HEIGHT = SCREEN_HEIGHT - tabBarHeight - topInset;
+  
+  // On Android: tab bar is an overlay (doesn't affect layout), use full screen height
+  // On iOS: tab bar is part of layout (takes space), subtract it
+  const ITEM_HEIGHT = Platform.OS === 'android' 
+    ? SCREEN_HEIGHT 
+    : SCREEN_HEIGHT - tabBarHeight;
+  
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatRef = useRef(null);
   
@@ -60,6 +64,7 @@ export default function Feed() {
     offset: ITEM_HEIGHT * index,
     index,
   }), [ITEM_HEIGHT]);
+
 
   const onMomentumScrollEnd = useCallback((evt: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetY = evt.nativeEvent.contentOffset.y;

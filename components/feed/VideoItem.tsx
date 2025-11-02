@@ -66,12 +66,19 @@ function VideoItemComponent({
   const videoRef = useRef<any>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // IMPORTANT: On Android, account for status bar inset at top
-  // We subtract tabBarHeight for bottom, and on Android also subtract top inset if needed
+  // IMPORTANT: Platform-specific height calculation
+  // Android: tab bar is an overlay (doesn't affect layout), use full screen height
+  // iOS: tab bar is part of layout (takes space), subtract it
   const availableHeight = useMemo(() => {
-    const topInset = Platform.OS === 'android' ? insets.top : 0;
-    return SCREEN_HEIGHT - tabBarHeight - topInset;
-  }, [tabBarHeight, insets.top]);
+    // If style prop provides height (from feed.tsx), use that
+    if (style?.height) {
+      return style.height;
+    }
+    // Otherwise calculate based on platform
+    return Platform.OS === 'android' 
+      ? SCREEN_HEIGHT 
+      : SCREEN_HEIGHT - tabBarHeight;
+  }, [tabBarHeight, style?.height]);
 
       // Start/clear the long-visible timer when isActive changes
   useEffect(() => {
@@ -306,7 +313,17 @@ function VideoItemComponent({
         </Text>
       </View>
 
-      <View style={styles.bottomRight}>
+      <View style={[
+        styles.bottomRight,
+        {
+          // On Android: tab bar is overlay, position above it
+          // On iOS: container already accounts for tab bar, position relative to container bottom
+          bottom: Platform.select({ 
+            ios: tabBarHeight + 16,  // tabBarHeight already subtracted from container
+            android: tabBarHeight + 16  // tabBarHeight not subtracted, so add it here
+          }),
+        }
+      ]}>
         <TouchableOpacity 
           onPress={(e) => {
             e.stopPropagation();
@@ -338,7 +355,20 @@ function VideoItemComponent({
       {/* Seek Bar */}
       {duration > 0 && isActive && (
         <Pressable 
-          style={styles.seekBarContainer}
+          style={[
+            styles.seekBarContainer,
+            {
+              // Platform-specific positioning:
+              // iOS: container height already accounts for tab bar (SCREEN_HEIGHT - tabBarHeight)
+              //      so bottom: 0 positions it right above tab bar
+              // Android: container is full screen height, tab bar is overlay
+              //          so we need to add tabBarHeight to position above it
+              bottom: Platform.select({ 
+                ios: 0, 
+                android: tabBarHeight 
+              }),
+            }
+          ]}
           onPress={(e) => {
             e.stopPropagation(); // Prevent triggering video tap
             const x = e.nativeEvent.locationX;
@@ -435,7 +465,7 @@ const styles = StyleSheet.create({
   bottomRight: {
     position: 'absolute',
     right: 12,
-    bottom: Platform.select({ ios: 100, android: 80 }),
+    // bottom is set dynamically in JSX based on platform
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -456,10 +486,7 @@ const styles = StyleSheet.create({
   },
   seekBarContainer: {
     position: 'absolute',
-    // bottom: 0 positions seek bar at the bottom edge of the container
-    // Since container height = SCREEN_HEIGHT - tabBarHeight, this ensures
-    // seek bar is positioned right above the tab bar
-    bottom: 0,
+    // bottom is set dynamically in JSX based on platform
     left: 0,
     right: 0,
     height: 30, // Touch area height (visual bar is 1px at bottom)
