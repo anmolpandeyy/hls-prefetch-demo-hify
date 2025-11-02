@@ -19,6 +19,19 @@ import Video from 'react-native-video';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DEFAULT_LONG_VISIBLE_MS = 5000;
 
+interface VideoItemProps {
+  id?: number | string;
+  uri: string;
+  isActive?: boolean;
+  overlay?: React.ReactNode;
+  onReady?: (meta?: any) => void;
+  onBuffer?: (isBuffering?: boolean) => void;
+  onError?: (err?: any) => void;
+  onLongVisible?: (data?: { id?: number | string; uri?: string }) => void;
+  longVisibleMs?: number;
+  style?: any;
+}
+
 function VideoItemComponent({
   id,
   uri,
@@ -30,27 +43,27 @@ function VideoItemComponent({
   onLongVisible = () => {},
   longVisibleMs = DEFAULT_LONG_VISIBLE_MS,
   style = {},
-}) {
+}: VideoItemProps) {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight?.() ?? 0;
   const containerRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [muted, setMuted] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<any>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const [measuredHeight, setMeasuredHeight] = useState(null);
-  const longVisibleTimer = useRef(null);
+  const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
+  const longVisibleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Video controls state
   const [manuallyPaused, setManuallyPaused] = useState(false);
   const [showPauseIcon, setShowPauseIcon] = useState(false);
-  const pauseIconTimeout = useRef(null);
+  const pauseIconTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Seek bar state
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const videoRef = useRef(null);
+  const videoRef = useRef<any>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   // IMPORTANT: assume tabBarHeight already accounts for bottom inset (react-navigation does).
@@ -61,11 +74,13 @@ function VideoItemComponent({
     [tabBarHeight]
   );
 
-  // Start/clear the long-visible timer when isActive changes
+      // Start/clear the long-visible timer when isActive changes
   useEffect(() => {
     if (isActive) {
       longVisibleTimer.current = setTimeout(() => {
-        onLongVisible && onLongVisible({ id, uri });
+        if (onLongVisible) {
+          onLongVisible({ id, uri });
+        }
       }, longVisibleMs);
     } else {
       if (longVisibleTimer.current) {
@@ -82,16 +97,20 @@ function VideoItemComponent({
   }, [isActive, id, uri, longVisibleMs, onLongVisible]);
 
 
-  const handleBuffer = useCallback(({ isBuffering }) => {
+  const handleBuffer = useCallback(({ isBuffering }: { isBuffering: boolean }) => {
     setLoading(isBuffering);
-    onBuffer && onBuffer(isBuffering);
+    if (onBuffer) {
+      onBuffer(isBuffering);
+    }
   }, [onBuffer]);
 
-  const handleError = useCallback((err) => {
+  const handleError = useCallback((err: any) => {
     console.error('[VideoItem] Video error:', id, uri, err);
     setLoading(false);
     setError(err);
-    onError && onError(err);
+    if (onError) {
+      onError(err);
+    }
   }, [onError, id, uri]);
 
   const handleRetry = useCallback(() => {
@@ -175,7 +194,7 @@ function VideoItemComponent({
     }
   }, []);
 
-  const handleLoad = useCallback((meta) => {
+  const handleLoad = useCallback((meta: any) => {
     console.log('[VideoItem] Video loaded:', id, uri);
     setLoading(false);
     setError(null);
@@ -183,7 +202,9 @@ function VideoItemComponent({
     if (meta?.duration) {
       setDuration(meta.duration);
     }
-    onReady && onReady(meta);
+    if (onReady) {
+      onReady(meta);
+    }
   }, [onReady, id, uri]);
 
   // Calculate seek bar progress
@@ -195,12 +216,12 @@ function VideoItemComponent({
     width: SCREEN_WIDTH,
     height: availableHeight,
     backgroundColor: 'black',
-    position: 'absolute',
+    position: 'absolute' as const,
     top: 0,
     left: 0,
   }), [availableHeight]);
 
-  const onContainerLayout = useCallback((e) => {
+  const onContainerLayout = useCallback((e: any) => {
     const h = e.nativeEvent.layout.height;
     setMeasuredHeight(h);
   }, []);
@@ -245,9 +266,9 @@ function VideoItemComponent({
           <Ionicons name="alert-circle-outline" size={64} color="#ff6b6b" />
           <Text style={styles.errorTitle}>Video Failed to Load</Text>
           <Text style={styles.errorMessage}>
-            {error.error?.code === 'ENOTFOUND' 
+            {error?.error?.code === 'ENOTFOUND' 
               ? 'No internet connection'
-              : error.error?.localizedFailureReason || error.error?.localizedDescription || 'Unable to play this video'
+              : error?.error?.localizedFailureReason || error?.error?.localizedDescription || 'Unable to play this video'
             }
           </Text>
           {retryCount < 3 && (
