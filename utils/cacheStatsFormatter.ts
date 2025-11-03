@@ -5,8 +5,8 @@
 type IOSCacheStats = {
   currentDiskUsage: number;
   diskCapacity: number;
-  currentMemoryUsage: number;
-  memoryCapacity: number;
+  currentMemoryUsage?: number;
+  memoryCapacity?: number;
 };
 
 type AndroidCacheStats = {
